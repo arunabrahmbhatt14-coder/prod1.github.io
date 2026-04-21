@@ -1,0 +1,431 @@
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, XCircle, ArrowRight, RefreshCcw, Award, PlayCircle, Info } from 'lucide-react';
+
+// --- Данные для тренажера ---
+
+const step1Data = [
+  { text: "«Ты вел себя агрессивно на встрече»", type: "label", explanation: "Агрессия у каждого своя. Это оценочное суждение (интерпретация)." },
+  { text: "«Ты перебил коллегу трижды, не дав закончить мысль»", type: "fact", explanation: "Это можно посчитать. Голый факт." },
+  { text: "«Ты безответственно относишься к дедлайнам»", type: "label", explanation: "Безответственность — это ярлык, а не факт." },
+  { text: "«Ты прислал отчет в 10:30, хотя мы договаривались на 09:00»", type: "fact", explanation: "Есть точное время и логи. Голый факт." },
+  { text: "«Твой код грязный и неряшливый»", type: "label", explanation: "Субъективная оценка. Факт звучал бы как «В коде 5 нарушений линтера»." }
+];
+
+const step2Items = [
+  { id: 'I', text: "«...из-за этого менеджер проекта вечером запаниковал и начал писать мне в личку, думая, что мы не успеваем к релизу».", type: "Impact" },
+  { id: 'B', text: "«...и увидел, что задача по фронтенду все еще в статусе In Progress, хотя фича уже в проде...»", type: "Behavior" },
+  { id: 'S', text: "«Вчера в конце рабочего дня я зашел в наш спринт...»", type: "Situation" }
+];
+
+const step3Data = {
+  question: "Лид говорит разработчику: «Ты не заполнил документацию к новому API (B)». Какой вариант Impact (I) будет самым убедительным для профессионала?",
+  options: [
+    { id: 1, text: "«Меня это очень расстраивает, я ведь просил».", isCorrect: false, feedback: "❌ Это про ваши чувства, а не про работу." },
+    { id: 2, text: "«Теперь другому разработчику придется потратить 4 часа, чтобы разобраться в твоем коде с нуля, и мы задержим интеграцию».", isCorrect: true, feedback: "✅ Отлично! Конкретный ущерб ресурсам и срокам." },
+    { id: 3, text: "«Ты подставляешь команду, это не по-товарищески».", isCorrect: false, feedback: "❌ Это манипуляция чувством вины, а не бизнес-факт." }
+  ]
+};
+
+const step4Data = {
+  question: "Вы слышите, как ваш тимлид-новичок говорит подчиненному: «Ну сколько можно косячить в простых задачах? Ты постоянно невнимателен!» Помогите ему переделать это в SBI.",
+  options: [
+    { id: 'A', text: "«Слушай, ты вчера опять допустил ошибку в конфигах. Ты вообще понимаешь, что из-за твоей невнимательности всё упало?»", isCorrect: false, feedback: "❌ Почти, но «невнимательность» — это всё еще ярлык." },
+    { id: 'B', text: "«Вчера при деплое релиза 2.0 в конфиге была пропущена точка с запятой. Это привело к 15 минутам даунтайма сервиса и потере 100 транзакций».", isCorrect: true, feedback: "✅ Идеально. Нет обвинений, только сухая физика процесса и последствия." },
+    { id: 'C', text: "«На прошлой неделе ты плохо работал над задачами. Команда недовольна твоим качеством».", isCorrect: false, feedback: "❌ Слишком размыто. «Плохо работал» — не факт. «Команда недовольна» — размытый Impact." }
+  ]
+};
+
+const step5Data = {
+  question: "Вы выдали отличный фидбек по SBI. Каким вопросом лучше всего завершить встречу, чтобы сотрудник сам предложил решение?",
+  options: [
+    { id: 1, text: "«Ты всё понял?»", isCorrect: false, feedback: "❌ Закрытый вопрос, провоцирует формальное «да»." },
+    { id: 2, text: "«Почему ты так поступил?»", isCorrect: false, feedback: "❌ Вопрос «почему» заставляет оправдываться." },
+    { id: 3, text: "«Как ты сам видишь эту ситуацию и что стоит изменить в следующий раз?»", isCorrect: true, feedback: "✅ Верно! Это коучинговый подход и передача ответственности сотруднику." }
+  ]
+};
+
+
+// --- Компоненты шагов ---
+
+const Step1Classification = ({ onComplete }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [feedback, setFeedback] = useState(null);
+  
+  const handleAnswer = (type) => {
+    const currentItem = step1Data[currentIndex];
+    const isCorrect = currentItem.type === type;
+    
+    setFeedback({
+      isCorrect,
+      text: currentItem.explanation
+    });
+  };
+
+  const nextPhrase = () => {
+    if (currentIndex < step1Data.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setFeedback(null);
+    } else {
+      onComplete();
+    }
+  };
+
+  const currentItem = step1Data[currentIndex];
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="bg-blue-50 text-blue-800 p-4 rounded-lg flex items-start gap-3">
+        <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="font-semibold mb-1">Шаг 1. Факт или Ярлык?</p>
+          <p className="text-sm">Распределите фразы по двум корзинам: «Голый факт» (то, что видит камера) и «Оценочное суждение» (то, что додумал мозг).</p>
+        </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div className="text-sm text-slate-400 font-medium mb-4">Фраза {currentIndex + 1} из {step1Data.length}</div>
+        <h3 className="text-xl md:text-2xl font-medium text-slate-800 mb-8 min-h-[4rem] flex items-center justify-center">
+          {currentItem.text}
+        </h3>
+        
+        {!feedback ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onClick={() => handleAnswer('fact')} className="py-4 px-6 rounded-lg border-2 border-emerald-500 text-emerald-700 hover:bg-emerald-50 font-medium transition-colors">
+              Голый факт
+            </button>
+            <button onClick={() => handleAnswer('label')} className="py-4 px-6 rounded-lg border-2 border-orange-500 text-orange-700 hover:bg-orange-50 font-medium transition-colors">
+              Оценочное суждение
+            </button>
+          </div>
+        ) : (
+          <div className={`p-6 rounded-lg text-left ${feedback.isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'} animate-fadeIn`}>
+            <div className="flex items-center gap-2 mb-2">
+              {feedback.isCorrect ? <CheckCircle2 className="text-emerald-600 w-6 h-6" /> : <XCircle className="text-red-600 w-6 h-6" />}
+              <span className={`font-semibold ${feedback.isCorrect ? 'text-emerald-800' : 'text-red-800'}`}>
+                {feedback.isCorrect ? 'Верно!' : 'Ошибка!'}
+              </span>
+            </div>
+            <p className={feedback.isCorrect ? 'text-emerald-700' : 'text-red-700'}>{feedback.text}</p>
+            
+            <div className="mt-6 text-right">
+              <button onClick={nextPhrase} className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg transition-colors">
+                {currentIndex < step1Data.length - 1 ? 'Следующая фраза' : 'Далее'} <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const Step2Ordering = ({ onComplete }) => {
+  const [available, setAvailable] = useState([...step2Items].sort(() => Math.random() - 0.5));
+  const [selected, setSelected] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+
+  const handleSelect = (item) => {
+    setAvailable(available.filter(i => i.id !== item.id));
+    const newSelected = [...selected, item];
+    setSelected(newSelected);
+
+    if (newSelected.length === 3) {
+      const order = newSelected.map(i => i.id).join('');
+      if (order === 'SBI') {
+        setFeedback({ isCorrect: true, text: "✅ Отлично! Вы правильно собрали структуру: Situation → Behavior → Impact." });
+      } else {
+        setFeedback({ isCorrect: false, text: "❌ Не совсем. Правильный порядок: Ситуация (где и когда) → Поведение (что конкретно произошло) → Влияние (последствия)." });
+      }
+    }
+  };
+
+  const handleReset = () => {
+    setAvailable([...step2Items].sort(() => Math.random() - 0.5));
+    setSelected([]);
+    setFeedback(null);
+  };
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="bg-blue-50 text-blue-800 p-4 rounded-lg flex items-start gap-3">
+        <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="font-semibold mb-1">Шаг 2. Конструктор: Собери пазл SBI</p>
+          <p className="text-sm">Вы хотите обсудить ситуацию, когда сотрудник не обновил статус задачи в Jira. Кликайте на элементы в правильном порядке (S - B - I).</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 min-h-[300px]">
+          <h4 className="font-medium text-slate-500 mb-4 uppercase text-sm tracking-wider">Доступные фрагменты</h4>
+          <div className="space-y-3">
+            {available.map(item => (
+              <button 
+                key={item.id} 
+                onClick={() => handleSelect(item)}
+                className="w-full text-left p-4 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-blue-400 hover:shadow-md transition-all"
+              >
+                {item.text}
+              </button>
+            ))}
+            {available.length === 0 && <p className="text-slate-400 italic text-center py-8">Все фрагменты выбраны</p>}
+          </div>
+        </div>
+
+        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 min-h-[300px]">
+          <h4 className="font-medium text-blue-800 mb-4 uppercase text-sm tracking-wider">Ваш фидбек</h4>
+          <div className="space-y-3">
+            {selected.map((item, idx) => (
+              <div key={item.id} className="p-4 bg-white border-l-4 border-blue-500 rounded-lg shadow-sm flex gap-3">
+                <span className="font-bold text-blue-300 select-none">{idx + 1}.</span>
+                <p className="text-slate-700">{item.text}</p>
+              </div>
+            ))}
+            {selected.length === 0 && <p className="text-blue-300 italic text-center py-8">Кликните на карточку слева, чтобы добавить её сюда</p>}
+          </div>
+        </div>
+      </div>
+
+      {feedback && (
+        <div className={`p-4 rounded-lg flex items-center justify-between ${feedback.isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'} animate-fadeIn`}>
+          <p className={`font-medium ${feedback.isCorrect ? 'text-emerald-800' : 'text-red-800'}`}>{feedback.text}</p>
+          {feedback.isCorrect ? (
+            <button onClick={onComplete} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg flex items-center gap-2 transition-colors">
+              Далее <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button onClick={handleReset} className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+              <RefreshCcw className="w-4 h-4" /> Сбросить
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StepMultipleChoice = ({ data, title, subtitle, onComplete }) => {
+  const [selectedId, setSelectedId] = useState(null);
+  
+  const handleSelect = (id) => {
+    setSelectedId(id);
+  };
+
+  const selectedOption = data.options.find(o => o.id === selectedId);
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="bg-blue-50 text-blue-800 p-4 rounded-lg flex items-start gap-3">
+        <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="font-semibold mb-1">{title}</p>
+          <p className="text-sm">{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-slate-200">
+        <h3 className="text-lg md:text-xl font-medium text-slate-800 mb-6 leading-relaxed">
+          {data.question}
+        </h3>
+
+        <div className="space-y-4">
+          {data.options.map(option => {
+            const isSelected = selectedId === option.id;
+            const showResult = selectedId !== null;
+            let btnClass = "w-full text-left p-4 rounded-lg border-2 transition-all ";
+            
+            if (!showResult) {
+              btnClass += "border-slate-200 hover:border-blue-400 hover:bg-blue-50 text-slate-700";
+            } else if (isSelected && option.isCorrect) {
+              btnClass += "border-emerald-500 bg-emerald-50 text-emerald-800";
+            } else if (isSelected && !option.isCorrect) {
+              btnClass += "border-red-500 bg-red-50 text-red-800";
+            } else if (!isSelected && option.isCorrect) {
+               btnClass += "border-emerald-300 bg-white text-slate-400 opacity-60";
+            } else {
+              btnClass += "border-slate-200 bg-slate-50 text-slate-400 opacity-60";
+            }
+
+            return (
+              <button 
+                key={option.id} 
+                onClick={() => !showResult && handleSelect(option.id)}
+                disabled={showResult}
+                className={btnClass}
+              >
+                <div className="flex gap-3 items-start">
+                  {showResult && isSelected && option.isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />}
+                  {showResult && isSelected && !option.isCorrect && <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />}
+                  <span className="leading-relaxed">{option.text}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedOption && (
+          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fadeIn">
+            <p className={`text-sm sm:text-base font-medium ${selectedOption.isCorrect ? 'text-emerald-700' : 'text-red-700'}`}>
+              {selectedOption.feedback}
+            </p>
+            
+            <button 
+              onClick={selectedOption.isCorrect ? onComplete : () => setSelectedId(null)} 
+              className={`flex-shrink-0 px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors ${
+                selectedOption.isCorrect 
+                ? 'bg-slate-800 hover:bg-slate-700 text-white' 
+                : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+              }`}
+            >
+              {selectedOption.isCorrect ? (
+                <>Далее <ArrowRight className="w-4 h-4" /></>
+              ) : (
+                <>Попробовать снова <RefreshCcw className="w-4 h-4" /></>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+// --- Главный компонент ---
+
+export default function App() {
+  const [step, setStep] = useState(0); // 0 = intro, 1-5 = steps, 6 = finish
+
+  const nextStep = () => {
+    window.scrollTo(0, 0);
+    setStep(s => s + 1);
+  };
+
+  const restart = () => {
+    window.scrollTo(0, 0);
+    setStep(0);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-12">
+      {/* Шапка и прогресс-бар */}
+      {step > 0 && step < 6 && (
+        <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
+            <h1 className="font-bold text-slate-700 hidden sm:block">Тренажер обратной связи</h1>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-sm font-medium text-slate-500 mr-2">Шаг {step} из 5</span>
+              <div className="flex gap-1 flex-1 sm:flex-none">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className={`h-2 w-8 md:w-12 rounded-full transition-colors ${i <= step ? 'bg-blue-600' : 'bg-slate-200'}`} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="max-w-4xl mx-auto px-4 md:px-8 mt-8">
+        
+        {/* Интро */}
+        {step === 0 && (
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 animate-fadeIn text-center md:text-left">
+             <div className="bg-slate-800 p-8 md:p-12 text-white">
+                <h1 className="text-3xl md:text-5xl font-bold mb-4">Мастер фидбека по модели SBI</h1>
+                <p className="text-lg text-slate-300 max-w-2xl">
+                  Интерактивный тренажер для руководителей. Научитесь давать развивающую обратную связь, опираясь на факты, а не эмоции.
+                </p>
+             </div>
+             <div className="p-8 md:p-12">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="font-bold text-xl text-blue-600 mb-2">S - Situation</div>
+                    <p className="text-sm text-slate-600">Якорь в конкретике. Точная привязка к времени и месту.</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="font-bold text-xl text-blue-600 mb-2">B - Behavior</div>
+                    <p className="text-sm text-slate-600">Только то, что можно увидеть. Факты, а не характер.</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="font-bold text-xl text-blue-600 mb-2">I - Impact</div>
+                    <p className="text-sm text-slate-600">Зачем это важно бизнесу, команде или клиенту.</p>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center md:justify-start">
+                  <button onClick={nextStep} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold text-lg flex items-center gap-3 transition-all transform hover:scale-105 shadow-lg hover:shadow-blue-500/30">
+                    <PlayCircle className="w-6 h-6" />
+                    Начать тренировку
+                  </button>
+                </div>
+             </div>
+          </div>
+        )}
+
+        {/* Шаг 1 */}
+        {step === 1 && <Step1Classification onComplete={nextStep} />}
+
+        {/* Шаг 2 */}
+        {step === 2 && <Step2Ordering onComplete={nextStep} />}
+
+        {/* Шаг 3 */}
+        {step === 3 && (
+          <StepMultipleChoice 
+            data={step3Data} 
+            title="Шаг 3. Усилитель: Найди бизнес-эффект (Impact)" 
+            subtitle="Научитесь формулировать Impact так, чтобы он не звучал как личная придирка."
+            onComplete={nextStep} 
+          />
+        )}
+
+        {/* Шаг 4 */}
+        {step === 4 && (
+          <StepMultipleChoice 
+            data={step4Data} 
+            title="Шаг 4. Редактор: Перевод с токсичного на развивающий" 
+            subtitle="Практика переформулирования ярлыков и эмоций в сухие факты."
+            onComplete={nextStep} 
+          />
+        )}
+
+        {/* Шаг 5 */}
+        {step === 5 && (
+          <StepMultipleChoice 
+            data={step5Data} 
+            title="Шаг 5. Финал: Переход к диалогу" 
+            subtitle="Как не превратить фидбек в нотацию и передать ответственность."
+            onComplete={nextStep} 
+          />
+        )}
+
+        {/* Финал */}
+        {step === 6 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-12 text-center animate-fadeIn">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Award className="w-10 h-10 text-emerald-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-800 mb-4">Тренажер успешно пройден!</h2>
+            <p className="text-lg text-slate-600 max-w-xl mx-auto mb-8">
+              Вы отлично справились! Теперь вы знаете, как отличать факты от оценок, строить конструктивный фидбек по модели SBI и завершать встречу коучинговым вопросом.
+            </p>
+            
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-left max-w-2xl mx-auto mb-10">
+              <h3 className="font-bold text-slate-700 mb-3 text-center">Памятка для рабочих встреч:</h3>
+              <ul className="space-y-3 text-sm text-slate-600">
+                <li className="flex gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0" />Избегайте слов «всегда», «никогда», «постоянно», «безответственно».</li>
+                <li className="flex gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0" />Описывайте ситуацию так, как её зафиксировала бы видеокамера.</li>
+                <li className="flex gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0" />Переводите недовольство в конкретный ущерб (время, деньги, блокировка других).</li>
+                <li className="flex gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0" />Не читайте нотации — передавайте слово вопросом: «Что сделаем иначе в следующий раз?»</li>
+              </ul>
+            </div>
+
+            <button onClick={restart} className="text-slate-500 hover:text-slate-800 font-medium inline-flex items-center gap-2 transition-colors">
+              <RefreshCcw className="w-4 h-4" /> Пройти еще раз
+            </button>
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
+}
